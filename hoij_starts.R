@@ -1,7 +1,7 @@
 # =====================================================================
 # hoij_starts.R -- IJ1- en HOIJ-2-startwaarden voor bootstrap-resamples
 #
-# Gedeeld door HOJ_warmstart (het experiment) en optimizer_experiments.R.
+# Gedeeld door HOJ_warmstart.R (het experiment) en optimizer_experiments.R.
 # Vereist dat hoij_core.R (kernel uit HOIJ-lavaan) al gesourcet is.
 # =====================================================================
 

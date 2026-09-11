@@ -3,7 +3,7 @@
 #
 # Beoordeling van warme starts (theta_hat, IJ1, HOIJ-2) voor de lavaan-
 # optimizers nlminb en GN, op hetzelfde bifactormodel en dezelfde data
-# als HOJ_warmstart. Vier experimenten, elk op B_EXP bootstrap-resamples:
+# als HOJ_warmstart.R. Vier experimenten, elk op B_EXP bootstrap-resamples:
 #
 #   (A) iteraties per startwaarde en optimizer, met als vloer een start
 #       op het exacte resample-optimum;
@@ -28,8 +28,8 @@ source("hoij_starts.R")
 
 B_EXP     <- 30          # aantal bootstrap-resamples per experiment
 SAMPLE_N  <- 500
-SEED_DATA <- 42          # zelfde seed als DATA_SEED_BASE in HOJ_warmstart
-SEED_IDX  <- 4242        # zelfde seed als idx_mat in HOJ_warmstart
+SEED_DATA <- 42          # zelfde seed als DATA_SEED_BASE in HOJ_warmstart.R
+SEED_IDX  <- 4242        # zelfde seed als idx_mat in HOJ_warmstart.R
 MEANSTRUCTURE <- TRUE
 KAPPA_DAMP    <- 1
 
@@ -39,7 +39,7 @@ cat("lavaan", as.character(packageVersion("lavaan")), "\n")
 
 
 # ---------------------------------------------------------------------
-# Model en data (identiek aan HOJ_warmstart)
+# Model en data (identiek aan HOJ_warmstart.R)
 # ---------------------------------------------------------------------
 pop.syntax <- '
   g =~ 0.7*y1 + 0.6*y2 + 0.5*y3 + 0.55*y4 +
@@ -70,7 +70,7 @@ set.seed(SEED_DATA)
 DATA <- simulateData(pop.syntax, sample.nobs = SAMPLE_N, std.lv = TRUE)
 N <- nrow(DATA)
 
-# Eén fitfunctie: NULL bij een fout, verder zoals fit_boot in HOJ_warmstart,
+# Eén fitfunctie: NULL bij een fout, verder zoals fit_boot in HOJ_warmstart.R,
 # maar met de optimizer als argument en extra lavaan-opties via ...
 fitf <- function(dat, method = "nlminb", start = NULL, ...) {
   suppressWarnings(tryCatch(
@@ -95,7 +95,7 @@ fx_of   <- function(f) if (is.null(f)) NA_real_ else
 
 
 # ---------------------------------------------------------------------
-# Referentiefit en HOIJ-setup (zoals in HOJ_warmstart)
+# Referentiefit en HOIJ-setup (zoals in HOJ_warmstart.R)
 # ---------------------------------------------------------------------
 fit <- fitf(DATA, "nlminb")
 stopifnot(adm_of(fit))
@@ -156,7 +156,7 @@ dist_to <- function(start, b, f) {
 
 # Mediaan over de resamples waarin alle armen convergeerden én toelaatbaar
 # waren én naar hetzelfde optimum gingen (fx-spreiding <= 1e-6), zoals
-# [W13]/[W8] in HOJ_warmstart.
+# [W13]/[W8] in HOJ_warmstart.R.
 same_opt_subset <- function(r) {
   ok_b <- as.integer(names(which(tapply(r$adm, r$b, all))))
   w <- reshape(r[, c("b", "arm", "fx")], idvar = "b", timevar = "arm",
