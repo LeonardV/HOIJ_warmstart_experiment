@@ -13,7 +13,7 @@
 #   (C) overdracht van kromming: eigenwaarden van H^-1 H_b (full-sample
 #       informatie tegen resample-informatie in het resample-optimum),
 #       plus een Newton-iteratie met de vaste full-sample H^-1;
-#   (D) interactie tussen tolerantie (nlminb rel.tol, GN optim.gn.tol.x)
+#   (D) interactie tussen tolerantie (nlminb rel.tol, GN tol_x) en startwaarde
 #       en startwaarde, met de afwijking van het strakke optimum op de
 #       schaal van de standaardfouten.
 #
@@ -281,7 +281,18 @@ print(do.call(rbind, lapply(split(chord, chord$start), function(d) data.frame(
 # =====================================================================
 cat("\n(D) tolerantie x startwaarde...\n")
 REL_TOL <- c(1e-10, 1e-8, 1e-6)      # nlminb rel.tol (lavaan-default 1e-10)
-GN_TOL  <- c(1e-5, 1e-4, 1e-3)       # optim.gn.tol.x (lavaan-default 1e-5)
+GN_TOL  <- c(1e-5, 1e-4, 1e-3)       # GN-stapcriterium tol_x (lavaan-default 1e-5)
+# De GN-opties zijn versie-afhankelijk. lavaan 0.6.x: optim.gn.tol.x, stop
+# alleen op de stapgrootte. lavaan >= 0.7: gn.args = list(max_iter, tol_x,
+# tol_g), Levenberg-Marquardt-demping, stop op stapgrootte OF gradient.
+# Daar schalen we tol_g mee met tol_x in de default-verhouding (1e-6 : 1e-5),
+# anders blijft het gradientcriterium bij een lossere tol_x bindend.
+GN_NEW_API <- "gn.args" %in% names(lavOptions())
+gn_tol_args <- function(tx) if (GN_NEW_API)
+  list(gn.args = list(tol_x = tx, tol_g = tx / 10)) else list(optim.gn.tol.x = tx)
+cat(sprintf("  GN-tolerantie via %s (lavaan %s)\n",
+            if (GN_NEW_API) "gn.args" else "optim.gn.tol.x",
+            as.character(packageVersion("lavaan"))))
 se_norm <- sqrt(sum(diag(vcov(sem(syntax, data = DATA, std.lv = TRUE,
                                   meanstructure = MEANSTRUCTURE)))))
 resD <- list()
@@ -298,8 +309,8 @@ for (b in adm_b) {
         err = if (conv_of(f)) sqrt(sum((coef(f, type = "free") - th_b)^2)) else NA)
     }
     for (tx in GN_TOL) {
-      tt <- system.time(f <- fitf(dat_b, "GN", starts[[s]],
-                                  optim.gn.tol.x = tx))[["elapsed"]]
+      tt <- system.time(f <- do.call(fitf, c(list(dat_b, "GN", starts[[s]]),
+                                             gn_tol_args(tx))))[["elapsed"]]
       resD[[length(resD) + 1]] <- data.frame(
         b = b, method = "GN", tol = tx, arm = s, conv = conv_of(f),
         iter = iter_of(f), time = tt, why = why_of(f),
