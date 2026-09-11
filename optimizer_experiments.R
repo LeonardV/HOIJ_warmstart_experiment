@@ -17,13 +17,19 @@
 #       en startwaarde, met de afwijking van het strakke optimum op de
 #       schaal van de standaardfouten.
 #
-# Werkdirectory = repositoryroot. Vereist hoij_core.R en hoij_starts.R.
+# Werkdirectory = repositoryroot. Vereist hoij_starts.R en hoij_core.R
+# (kopie, of via HOIJ_LAVAAN_DIR).
 # Looptijd: enkele minuten. Resultaten worden ook als RDS weggeschreven
 # naar optimizer_experiments_output/.
 # =====================================================================
 
 suppressPackageStartupMessages(library(lavaan))
-source("hoij_core.R")
+# hoij_core.R uit HOIJ-lavaan: kopie in de repositoryroot, of via de
+# omgevingsvariabele HOIJ_LAVAAN_DIR (zie HOJ_warmstart.R).
+HOIJ_CORE <- file.path(Sys.getenv("HOIJ_LAVAAN_DIR", "."), "hoij_core.R")
+if (!file.exists(HOIJ_CORE))
+  stop(HOIJ_CORE, " niet gevonden; zet HOIJ_LAVAAN_DIR of kopieer hoij_core.R.")
+source(HOIJ_CORE)
 source("hoij_starts.R")
 
 B_EXP     <- 30          # aantal bootstrap-resamples per experiment

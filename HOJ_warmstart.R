@@ -148,11 +148,16 @@ suppressPackageStartupMessages({
   library(glmnet)
 })
 
-HOIJ_CORE <- "hoij_core.R"
+# Pad naar hoij_core.R uit HOIJ-lavaan. Standaard: een kopie in deze
+# repositoryroot. Wil je rechtstreeks uit je HOIJ-lavaan-checkout sourcen,
+# zet dan vóór het sourcen van dit script de omgevingsvariabele
+# HOIJ_LAVAAN_DIR (Sys.setenv(HOIJ_LAVAAN_DIR = "pad/naar/HOIJ-lavaan")),
+# of pas HOIJ_CORE hieronder aan.
+HOIJ_CORE <- file.path(Sys.getenv("HOIJ_LAVAAN_DIR", "."), "hoij_core.R")
 if (!file.exists(HOIJ_CORE))
-  stop(sprintf(paste0("[W19] %s niet gevonden. Draai dit script vanuit de ",
-                      "repositoryroot; hoij_core.R is de kernel uit HOIJ-lavaan."),
-               HOIJ_CORE))
+  stop(sprintf(paste0("[W19] %s niet gevonden. Zet een kopie van hoij_core.R uit ",
+                      "HOIJ-lavaan in de repositoryroot, of wijs met HOIJ_LAVAAN_DIR ",
+                      "naar je HOIJ-lavaan-checkout."), HOIJ_CORE))
 source(HOIJ_CORE)
 
 cat(sprintf("lavaan versie: %s\n", as.character(packageVersion("lavaan"))))

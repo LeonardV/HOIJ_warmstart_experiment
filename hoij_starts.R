@@ -5,7 +5,8 @@
 # Vereist dat hoij_core.R (kernel uit HOIJ-lavaan) al gesourcet is.
 # =====================================================================
 
-if (!exists("ij1_replicates", mode = "function")) source("hoij_core.R")
+if (!exists("ij1_replicates", mode = "function"))
+  source(file.path(Sys.getenv("HOIJ_LAVAAN_DIR", "."), "hoij_core.R"))
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HOIJ STARTWAARDEN                                                        [W19c]
