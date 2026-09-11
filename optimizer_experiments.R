@@ -72,7 +72,9 @@ N <- nrow(DATA)
 
 # Eén fitfunctie: NULL bij een fout, verder zoals fit_boot in HOJ_warmstart.R,
 # maar met de optimizer als argument en extra lavaan-opties via ...
+LAST_FIT_ERROR <- NULL   # foutmelding van de laatste mislukte sem()-aanroep
 fitf <- function(dat, method = "nlminb", start = NULL, ...) {
+  LAST_FIT_ERROR <<- NULL
   suppressWarnings(tryCatch(
     if (is.null(start)) {
       sem(syntax, data = dat, std.lv = TRUE, estimator = "ML",
@@ -83,7 +85,13 @@ fitf <- function(dat, method = "nlminb", start = NULL, ...) {
           meanstructure = MEANSTRUCTURE, optim.method = method,
           se = "none", start = start, ...)
     },
-    error = function(e) NULL))
+    error = function(e) { LAST_FIT_ERROR <<- conditionMessage(e); NULL }))
+}
+# Waarom een fit niet bruikbaar is: lavaan-fout, of de optimizer-melding
+why_of <- function(f) {
+  if (is.null(f)) return(paste("error:", LAST_FIT_ERROR))
+  w <- tryCatch(lavInspect(f, "optim")$warn.txt, error = function(e) NULL)
+  if (is.null(w) || !nzchar(trimws(w))) "" else trimws(w)
 }
 conv_of <- function(f) !is.null(f) && isTRUE(lavInspect(f, "converged"))
 adm_of  <- function(f) conv_of(f) &&
@@ -286,7 +294,7 @@ for (b in adm_b) {
                                   control = list(rel.tol = rt)))[["elapsed"]]
       resD[[length(resD) + 1]] <- data.frame(
         b = b, method = "nlminb", tol = rt, arm = s, conv = conv_of(f),
-        iter = iter_of(f), time = tt,
+        iter = iter_of(f), time = tt, why = why_of(f),
         err = if (conv_of(f)) sqrt(sum((coef(f, type = "free") - th_b)^2)) else NA)
     }
     for (tx in GN_TOL) {
@@ -294,29 +302,43 @@ for (b in adm_b) {
                                   optim.gn.tol.x = tx))[["elapsed"]]
       resD[[length(resD) + 1]] <- data.frame(
         b = b, method = "GN", tol = tx, arm = s, conv = conv_of(f),
-        iter = iter_of(f), time = tt,
+        iter = iter_of(f), time = tt, why = why_of(f),
         err = if (conv_of(f)) sqrt(sum((coef(f, type = "free") - th_b)^2)) else NA)
     }
   }
 }
 resD <- do.call(rbind, resD)
 resD$arm <- factor(resD$arm, levels = start_levels[1:4])
-cat(sprintf("  norm van de standaardfouten over %d parameters: %.3f\n", D, se_norm))
-for (m in c("nlminb", "GN")) {
-  r <- resD[resD$method == m, ]
-  ok_b <- as.integer(names(which(tapply(r$conv, r$b, all))))
-  r <- r[r$b %in% ok_b, ]
-  cat(sprintf("\n== (D) %s: mediaan over %d resamples; err = afstand tot strak optimum ==\n",
-              m, length(ok_b)))
-  tab <- aggregate(cbind(iter, time, err) ~ tol + arm, data = r, FUN = median)
-  tab$time_ms <- round(1000 * tab$time, 1); tab$time <- NULL
-  tab$err_rel_se <- tab$err / se_norm
-  print(tab[order(tab$tol, tab$arm), ], digits = 3, row.names = FALSE)
-}
 
+# Ruwe resultaten eerst wegschrijven, zodat een probleem in de samenvatting
+# de metingen niet kost.
+rds_file <- file.path(out_dir, sprintf("optimizer_experiments_%s.rds",
+                                       format(Sys.time(), "%Y%m%d_%H%M")))
 saveRDS(list(A = resA, B = resB, C = list(eig = resC, chord = chord), D = resD,
              lavaan = as.character(packageVersion("lavaan")),
-             sessionInfo = sessionInfo()),
-        file.path(out_dir, sprintf("optimizer_experiments_%s.rds",
-                                   format(Sys.time(), "%Y%m%d_%H%M"))))
-cat(sprintf("\nKlaar. RDS in %s/\n", out_dir))
+             sessionInfo = sessionInfo()), rds_file)
+
+cat(sprintf("  norm van de standaardfouten over %d parameters: %.3f\n", D, se_norm))
+n_res <- length(adm_b)
+for (m in c("nlminb", "GN")) {
+  r <- resD[resD$method == m, ]
+  cat(sprintf(paste0("\n== (D) %s: mediaan over de geconvergeerde fits per combinatie ",
+                     "(n_conv van %d resamples); err = afstand tot strak optimum ==\n"),
+              m, n_res))
+  tab <- do.call(rbind, lapply(split(r, list(r$tol, r$arm)), function(d) data.frame(
+    tol = d$tol[1], arm = d$arm[1], n_conv = sum(d$conv),
+    iter = median(d$iter[d$conv]), time_ms = round(1000 * median(d$time[d$conv]), 1),
+    err = median(d$err[d$conv]), err_rel_se = median(d$err[d$conv]) / se_norm)))
+  print(tab[order(tab$tol, tab$arm), ], digits = 3, row.names = FALSE)
+  # Niet-geconvergeerde fits: de meest voorkomende oorzaken
+  bad <- r[!r$conv, ]
+  if (nrow(bad) > 0L) {
+    cat(sprintf("  %d van %d %s-fits niet geconvergeerd. Oorzaken:\n", nrow(bad), nrow(r), m))
+    why <- sort(table(ifelse(nzchar(bad$why), bad$why, "(geen melding; converged = FALSE)")),
+                decreasing = TRUE)
+    for (i in seq_len(min(5L, length(why))))
+      cat(sprintf("    %4d x %s\n", why[i], substr(names(why)[i], 1, 160)))
+  }
+}
+
+cat(sprintf("\nKlaar. RDS: %s\n", rds_file))
